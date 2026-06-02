@@ -9,3 +9,10 @@ spring:
     url: jdbc:mysql://localhost:3306/zntk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: root
+
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0

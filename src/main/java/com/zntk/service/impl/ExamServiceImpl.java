@@ -16,11 +16,13 @@ import com.zntk.mapper.PaperMapper;
 import com.zntk.mapper.PaperQuestionMapper;
 import com.zntk.mapper.QuestionMapper;
 import com.zntk.service.ExamService;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 考试业务实现类。
@@ -35,20 +37,24 @@ public class ExamServiceImpl implements ExamService {
     private final PaperMapper paperMapper;
     private final PaperQuestionMapper paperQuestionMapper;
     private final QuestionMapper questionMapper;
+    private final StringRedisTemplate stringRedisTemplate;
 
     public ExamServiceImpl(
             ExamRecordMapper examRecordMapper,
             AnswerRecordMapper answerRecordMapper,
             PaperMapper paperMapper,
             PaperQuestionMapper paperQuestionMapper,
-            QuestionMapper questionMapper
+            QuestionMapper questionMapper,
+            StringRedisTemplate stringRedisTemplate
     ) {
         this.examRecordMapper = examRecordMapper;
         this.answerRecordMapper = answerRecordMapper;
         this.paperMapper = paperMapper;
         this.paperQuestionMapper = paperQuestionMapper;
         this.questionMapper = questionMapper;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
+
 
     /**
      * 开始考试。
@@ -82,66 +88,90 @@ public class ExamServiceImpl implements ExamService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean submitExam(SubmitExamRequest request) {
-        // 1. 查询考试记录
-        ExamRecord examRecord = examRecordMapper.selectById(request.getExamRecordId());
+        // 根据考试记录 ID 生成 Redis 锁 key
+        String lockKey = "exam:submit:" + request.getExamRecordId();
 
-        if (examRecord == null) {
-            throw new RuntimeException("考试记录不存在");
+        // 尝试加锁。
+        //
+        // setIfAbsent 等价于 Redis 的 SETNX：
+        // 如果 key 不存在，就设置成功，返回 true；
+        // 如果 key 已经存在，说明有其他请求正在提交，返回 false。
+        //
+        // 这里设置 30 秒过期时间，避免服务异常时锁一直不释放。
+        Boolean locked = stringRedisTemplate.opsForValue()
+                .setIfAbsent(lockKey, "1", 30, TimeUnit.SECONDS);
+
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new RuntimeException("考试正在提交中，请勿重复操作");
         }
 
-        if (examRecord.getStatus() != null && examRecord.getStatus() == 1) {
-            throw new RuntimeException("考试已提交，不能重复提交");
-        }
+        try {
+            // 下面开始执行原来的提交考试逻辑
 
-        // 2. 查询试卷题目关联，后面要根据题目分值判分
-        LambdaQueryWrapper<PaperQuestion> paperQuestionWrapper = new LambdaQueryWrapper<>();
-        paperQuestionWrapper.eq(PaperQuestion::getPaperId, examRecord.getPaperId());
+            // 1. 查询考试记录
+            ExamRecord examRecord = examRecordMapper.selectById(request.getExamRecordId());
 
-        List<PaperQuestion> paperQuestions = paperQuestionMapper.selectList(paperQuestionWrapper);
-
-        int userScore = 0;
-
-        // 3. 遍历用户提交的答案
-        for (SubmitAnswerRequest answerRequest : request.getAnswers()) {
-            // 3.1 查询题目
-            Question question = questionMapper.selectById(answerRequest.getQuestionId());
-
-            if (question == null) {
-                throw new RuntimeException("题目不存在：" + answerRequest.getQuestionId());
+            if (examRecord == null) {
+                throw new RuntimeException("考试记录不存在");
             }
 
-            // 3.2 找到这道题在试卷中的分值
-            Integer questionScore = findQuestionScore(paperQuestions, answerRequest.getQuestionId());
+            if (examRecord.getStatus() != null && examRecord.getStatus() == 1) {
+                throw new RuntimeException("考试已提交，不能重复提交");
+            }
 
-            // 3.3 判断答案是否正确
-            boolean correct = question.getAnswer() != null
-                    && question.getAnswer().equalsIgnoreCase(answerRequest.getUserAnswer());
+            // 2. 查询试卷题目关联，后面要根据题目分值判分
+            LambdaQueryWrapper<PaperQuestion> paperQuestionWrapper = new LambdaQueryWrapper<>();
+            paperQuestionWrapper.eq(PaperQuestion::getPaperId, examRecord.getPaperId());
 
-            int score = correct ? questionScore : 0;
+            List<PaperQuestion> paperQuestions = paperQuestionMapper.selectList(paperQuestionWrapper);
 
-            // 3.4 保存答题记录
-            AnswerRecord answerRecord = new AnswerRecord();
-            answerRecord.setExamRecordId(examRecord.getId());
-            answerRecord.setQuestionId(answerRequest.getQuestionId());
-            answerRecord.setUserAnswer(answerRequest.getUserAnswer());
-            answerRecord.setCorrectAnswer(question.getAnswer());
-            answerRecord.setIsCorrect(correct ? 1 : 0);
-            answerRecord.setScore(score);
+            int userScore = 0;
 
-            answerRecordMapper.insert(answerRecord);
+            // 3. 遍历用户提交的答案
+            for (SubmitAnswerRequest answerRequest : request.getAnswers()) {
+                // 3.1 查询题目
+                Question question = questionMapper.selectById(answerRequest.getQuestionId());
 
-            // 3.5 累加用户得分
-            userScore += score;
+                if (question == null) {
+                    throw new RuntimeException("题目不存在：" + answerRequest.getQuestionId());
+                }
+
+                // 3.2 找到这道题在试卷中的分值
+                Integer questionScore = findQuestionScore(paperQuestions, answerRequest.getQuestionId());
+
+                // 3.3 判断答案是否正确
+                boolean correct = question.getAnswer() != null
+                        && question.getAnswer().equalsIgnoreCase(answerRequest.getUserAnswer());
+
+                int score = correct ? questionScore : 0;
+
+                // 3.4 保存答题记录
+                AnswerRecord answerRecord = new AnswerRecord();
+                answerRecord.setExamRecordId(examRecord.getId());
+                answerRecord.setQuestionId(answerRequest.getQuestionId());
+                answerRecord.setUserAnswer(answerRequest.getUserAnswer());
+                answerRecord.setCorrectAnswer(question.getAnswer());
+                answerRecord.setIsCorrect(correct ? 1 : 0);
+                answerRecord.setScore(score);
+
+                answerRecordMapper.insert(answerRecord);
+
+                // 3.5 累加用户得分
+                userScore += score;
+            }
+
+            // 4. 更新考试记录
+            examRecord.setUserScore(userScore);
+            examRecord.setStatus(1);
+            examRecord.setSubmitTime(LocalDateTime.now());
+
+            examRecordMapper.updateById(examRecord);
+
+            return true;
+        } finally {
+            // 不管提交成功还是失败，都释放锁
+            stringRedisTemplate.delete(lockKey);
         }
-
-        // 4. 更新考试记录
-        examRecord.setUserScore(userScore);
-        examRecord.setStatus(1);
-        examRecord.setSubmitTime(LocalDateTime.now());
-
-        examRecordMapper.updateById(examRecord);
-
-        return true;
     }
 
     /**
