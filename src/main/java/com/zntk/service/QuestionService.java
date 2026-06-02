@@ -1,5 +1,7 @@
 package com.zntk.service;
 
+import com.zntk.dto.QuestionCreateRequest;
+import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.entity.Question;
 
 import java.util.List;
@@ -7,8 +9,8 @@ import java.util.List;
 /**
  * 题目业务接口。
  *
- * Controller 不再直接调用 Mapper，
- * 而是调用 Service，由 Service 负责业务逻辑。
+ * Controller 不直接操作 Mapper，
+ * 而是调用 Service 完成业务逻辑。
  */
 public interface QuestionService {
 
@@ -19,13 +21,17 @@ public interface QuestionService {
 
     /**
      * 根据 ID 查询题目详情。
+     *
+     * 返回题目基础信息 + 选项列表。
      */
-    Question getQuestionById(Long id);
+    QuestionDetailResponse getQuestionById(Long id);
 
     /**
-     * 新增题目，返回生成的题目 ID。
+     * 新增题目。
+     *
+     * 支持同时保存题目基础信息和选项列表。
      */
-    Long createQuestion(Question question);
+    Long createQuestion(QuestionCreateRequest request);
 
     /**
      * 根据 ID 修改题目。

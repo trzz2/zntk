@@ -1,6 +1,8 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.dto.QuestionCreateRequest;
+import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.entity.Question;
 import com.zntk.service.QuestionService;
 import org.springframework.web.bind.annotation.*;
@@ -37,14 +39,16 @@ public class QuestionController {
     }
 
     @GetMapping("/{id}")
-    public Result<Question> getById(@PathVariable Long id) {
-        Question question = questionService.getQuestionById(id);
+    public Result<QuestionDetailResponse> getById(@PathVariable Long id) {
+        // 查询题目详情：题目基础信息 + 选项列表
+        QuestionDetailResponse question = questionService.getQuestionById(id);
         return Result.success(question);
     }
 
     @PostMapping
-    public Result<Long> create(@RequestBody Question question) {
-        Long id = questionService.createQuestion(question);
+    public Result<Long> create(@RequestBody QuestionCreateRequest request) {
+        // 新增题目，同时支持保存题目选项
+        Long id = questionService.createQuestion(request);
         return Result.success(id);
     }
 
