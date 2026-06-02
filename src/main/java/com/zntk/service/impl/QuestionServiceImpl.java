@@ -7,6 +7,9 @@ import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.dto.QuestionOptionRequest;
 import com.zntk.entity.Question;
 import com.zntk.entity.QuestionOption;
+import com.zntk.enums.DifficultyEnum;
+import com.zntk.enums.QuestionTypeEnum;
+import com.zntk.enums.StatusEnum;
 import com.zntk.mapper.QuestionMapper;
 import com.zntk.mapper.QuestionOptionMapper;
 import com.zntk.service.QuestionService;
@@ -181,6 +184,21 @@ public class QuestionServiceImpl implements QuestionService {
             throw new RuntimeException("难度不能为空");
         }
 
+
+        // 校验题型是否在系统支持范围内
+        if (!QuestionTypeEnum.isValid(request.getQuestionType())) {
+            throw new RuntimeException("题型不合法");
+        }
+
+// 校验难度是否在系统支持范围内
+        if (!DifficultyEnum.isValid(request.getDifficulty())) {
+            throw new RuntimeException("难度不合法");
+        }
+
+// 如果前端传了 status，就校验 status 是否合法
+        if (request.getStatus() != null && !StatusEnum.isValid(request.getStatus())) {
+            throw new RuntimeException("状态不合法");
+        }
         // 2. 把请求 DTO 转成数据库实体 Question
         Question question = new Question();
         question.setTitle(request.getTitle());
