@@ -1,6 +1,7 @@
 package com.zntk.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zntk.dto.QuestionCreateRequest;
 import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.dto.QuestionOptionRequest;
@@ -64,7 +65,82 @@ public class QuestionServiceImpl implements QuestionService {
 
         return questionMapper.selectList(wrapper);
     }
+    @Override
+    public Page<Question> pageQuestions(
+            Long pageNo,
+            Long pageSize,
+            Integer questionType,
+            Integer difficulty,
+            String knowledgePoint
+    ) {
+        // 创建分页对象。
+        //
+        // Page<Question> 表示：
+        // 我要分页查询 Question 类型的数据。
+        //
+        // pageNo：当前第几页
+        // pageSize：每页多少条
+        //
+        // 例如 new Page<>(1, 10)
+        // 表示查询第 1 页，每页 10 条。
+        Page<Question> page = new Page<>(pageNo, pageSize);
 
+        // 创建查询条件构造器。
+        //
+        // LambdaQueryWrapper<Question> 表示：
+        // 我要为 Question 表拼接查询条件。
+        LambdaQueryWrapper<Question> wrapper = new LambdaQueryWrapper<>();
+
+        // 如果 questionType 不为空，就添加题型筛选条件。
+        //
+        // 相当于 SQL：
+        // where question_type = questionType
+        wrapper.eq(questionType != null, Question::getQuestionType, questionType);
+
+        // 如果 difficulty 不为空，就添加难度筛选条件。
+        //
+        // 相当于 SQL：
+        // where difficulty = difficulty
+        wrapper.eq(difficulty != null, Question::getDifficulty, difficulty);
+
+        // 如果 knowledgePoint 不为空并且不是空白字符串，
+        // 就添加知识点模糊查询条件。
+        //
+        // 相当于 SQL：
+        // where knowledge_point like '%Redis%'
+        wrapper.like(
+                knowledgePoint != null && !knowledgePoint.isBlank(),
+                Question::getKnowledgePoint,
+                knowledgePoint
+        );
+
+        // 按创建时间倒序。
+        //
+        // 相当于 SQL：
+        // order by create_time desc
+        //
+        // 最新创建的题目排在最前面。
+        wrapper.orderByDesc(Question::getCreateTime);
+
+        // 执行分页查询。
+        //
+        // selectPage 是 MyBatis-Plus BaseMapper 提供的方法。
+        //
+        // 第 1 个参数 page：
+        // 告诉 MyBatis-Plus 当前第几页、每页多少条。
+        //
+        // 第 2 个参数 wrapper：
+        // 告诉 MyBatis-Plus 按什么条件查询。
+        //
+        // 返回值仍然是 Page<Question>，
+        // 里面会包含：
+        // records：当前页数据
+        // total：总记录数
+        // current：当前页
+        // size：每页条数
+        // pages：总页数
+        return questionMapper.selectPage(page, wrapper);
+    }
     @Override
     public QuestionDetailResponse getQuestionById(Long id) {
         // 先查询题目主表

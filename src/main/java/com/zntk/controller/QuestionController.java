@@ -1,5 +1,6 @@
 package com.zntk.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zntk.common.Result;
 import com.zntk.dto.QuestionCreateRequest;
 import com.zntk.dto.QuestionDetailResponse;
@@ -37,6 +38,39 @@ public class QuestionController {
     ) {
         List<Question> questions = questionService.listQuestions(questionType, difficulty, knowledgePoint);
         return Result.success(questions);
+    }
+
+    @GetMapping("/page")
+    public Result<Page<Question>> page(
+            // 当前页码。
+            // 如果前端不传，默认查第 1 页。
+            @RequestParam(defaultValue = "1") Long pageNo,
+
+            // 每页条数。
+            // 如果前端不传，默认每页 10 条。
+            @RequestParam(defaultValue = "10") Long pageSize,
+
+            // 题型筛选条件。
+            // required = false 表示不是必传。
+            @RequestParam(required = false) Integer questionType,
+
+            // 难度筛选条件。
+            @RequestParam(required = false) Integer difficulty,
+
+            // 知识点筛选条件。
+            @RequestParam(required = false) String knowledgePoint
+    ) {
+        // 调用 Service 层分页查询方法
+        Page<Question> page = questionService.pageQuestions(
+                pageNo,
+                pageSize,
+                questionType,
+                difficulty,
+                knowledgePoint
+        );
+
+        // 使用统一返回结果包装分页数据
+        return Result.success(page);
     }
 
     @GetMapping("/{id}")
