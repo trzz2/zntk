@@ -1,30 +1,33 @@
 package com.zntk.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
  * 新增题目时传入的选项数据。
  *
- * 它不是数据库实体类，
- * 只是用来接收前端请求里的 options 数组。
+ * 它用于接收前端传来的 options 数组中的每一项。
  */
 @Data
 public class QuestionOptionRequest {
 
     /**
-     * 选项标识。
+     * 选项标识不能为空。
      * 例如 A、B、C、D。
      */
+    @NotBlank(message = "选项标识不能为空")
     private String optionLabel;
 
     /**
-     * 选项内容。
+     * 选项内容不能为空。
      */
+    @NotBlank(message = "选项内容不能为空")
     private String optionContent;
 
     /**
-     * 选项排序。
-     * 例如 A=1，B=2，C=3，D=4。
+     * 排序不能为空。
      */
+    @NotNull(message = "选项排序不能为空")
     private Integer sortOrder;
 }

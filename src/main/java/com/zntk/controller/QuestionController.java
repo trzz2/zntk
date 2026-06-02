@@ -5,6 +5,7 @@ import com.zntk.dto.QuestionCreateRequest;
 import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.entity.Question;
 import com.zntk.service.QuestionService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,8 +47,9 @@ public class QuestionController {
     }
 
     @PostMapping
-    public Result<Long> create(@RequestBody QuestionCreateRequest request) {
-        // 新增题目，同时支持保存题目选项
+    public Result<Long> create(@Valid @RequestBody QuestionCreateRequest request) {
+        // @Valid 会触发 QuestionCreateRequest 中的参数校验注解
+        // 如果 title、questionType、difficulty 不合法，会在进入 Service 前直接抛出校验异常
         Long id = questionService.createQuestion(request);
         return Result.success(id);
     }
