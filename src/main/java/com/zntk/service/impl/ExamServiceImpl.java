@@ -11,11 +11,13 @@ import com.zntk.entity.ExamRecord;
 import com.zntk.entity.Paper;
 import com.zntk.entity.PaperQuestion;
 import com.zntk.entity.Question;
+import com.zntk.entity.WrongQuestion;
 import com.zntk.mapper.AnswerRecordMapper;
 import com.zntk.mapper.ExamRecordMapper;
 import com.zntk.mapper.PaperMapper;
 import com.zntk.mapper.PaperQuestionMapper;
 import com.zntk.mapper.QuestionMapper;
+import com.zntk.mapper.WrongQuestionMapper;
 import com.zntk.service.ExamService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -42,6 +44,7 @@ public class ExamServiceImpl implements ExamService {
     private final PaperQuestionMapper paperQuestionMapper;
     private final QuestionMapper questionMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final WrongQuestionMapper wrongQuestionMapper;
     /**
      * 考试排行榜 Redis key 前缀
      *
@@ -55,17 +58,19 @@ public class ExamServiceImpl implements ExamService {
     public ExamServiceImpl(
             ExamRecordMapper examRecordMapper,
             AnswerRecordMapper answerRecordMapper,
-            PaperMapper paperMapper,
             PaperQuestionMapper paperQuestionMapper,
             QuestionMapper questionMapper,
-            StringRedisTemplate stringRedisTemplate
+            StringRedisTemplate stringRedisTemplate,
+            WrongQuestionMapper wrongQuestionMapper,
+            PaperMapper paperMapper
     ) {
         this.examRecordMapper = examRecordMapper;
         this.answerRecordMapper = answerRecordMapper;
-        this.paperMapper = paperMapper;
         this.paperQuestionMapper = paperQuestionMapper;
         this.questionMapper = questionMapper;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.wrongQuestionMapper = wrongQuestionMapper;
+        this.paperMapper = paperMapper;
     }
 
 
@@ -168,6 +173,44 @@ public class ExamServiceImpl implements ExamService {
                 answerRecord.setScore(score);
 
                 answerRecordMapper.insert(answerRecord);
+                // 如果这道题答错了，就保存到错题本。
+// correct 是前面判题得到的布尔值：true 表示答对，false 表示答错。
+                if (!correct) {
+                    WrongQuestion wrongQuestion = new WrongQuestion();
+
+                    // 当前考试是谁提交的，就记录哪个用户。
+                    wrongQuestion.setUserId(examRecord.getUserId());
+
+                    // 当前答错的是哪道题。
+                    wrongQuestion.setQuestionId(answerRequest.getQuestionId());
+
+                    // 当前错题来自哪张试卷。
+                    wrongQuestion.setPaperId(examRecord.getPaperId());
+
+                    // 当前错题来自哪一次考试。
+                    wrongQuestion.setExamRecordId(examRecord.getId());
+
+                    // 用户提交的错误答案。
+                    wrongQuestion.setWrongAnswer(answerRequest.getUserAnswer());
+
+                    // 题目表里的正确答案。
+                    wrongQuestion.setCorrectAnswer(question.getAnswer());
+
+                    // 第一次记录，错误次数先写 1。
+                    wrongQuestion.setWrongCount(1);
+
+                    // 最近一次答错时间设置为当前时间。
+                    wrongQuestion.setLastWrongTime(LocalDateTime.now());
+
+                    // 创建时间和更新时间。
+                    wrongQuestion.setCreateTime(LocalDateTime.now());
+                    wrongQuestion.setUpdateTime(LocalDateTime.now());
+
+                    // 逻辑删除字段：0 表示未删除。
+                    wrongQuestion.setDeleted(0);
+
+                    wrongQuestionMapper.insert(wrongQuestion);
+                }
 
                 // 3.5 累加用户得分
                 userScore += score;
