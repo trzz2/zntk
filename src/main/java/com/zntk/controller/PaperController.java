@@ -3,6 +3,7 @@ package com.zntk.controller;
 import com.zntk.common.Result;
 import com.zntk.dto.PaperCreateRequest;
 import com.zntk.dto.PaperDetailResponse;
+import com.zntk.dto.RandomPaperRequest;
 import com.zntk.service.PaperService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -41,5 +42,24 @@ public class PaperController {
     public Result<PaperDetailResponse> getById(@PathVariable Long id) {
         PaperDetailResponse paper = paperService.getPaperById(id);
         return Result.success(paper);
+    }
+
+
+    /**
+     * 随机组卷
+     *
+     * 请求示例：
+     * POST /papers/random
+     *
+     * 根据题型、难度、知识点、题目数量等条件，
+     * 自动从题库中抽题生成一张试卷。
+     */
+    @PostMapping("/random")
+    public Result<Long> randomPaper(@RequestBody @Valid RandomPaperRequest request) {
+        // 调用 Service 完成随机组卷逻辑。
+        // 返回值是新生成的试卷 ID。
+        Long paperId = paperService.randomPaper(request);
+
+        return Result.success(paperId);
     }
 }
