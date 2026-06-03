@@ -1,6 +1,7 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.dto.FavoriteQuestionDetailResponse;
 import com.zntk.dto.FavoriteQuestionRequest;
 import com.zntk.entity.FavoriteQuestion;
 import com.zntk.service.FavoriteQuestionService;
@@ -58,12 +59,17 @@ public class FavoriteQuestionController {
      * 请求示例：
      * GET /favorite-questions?userId=1
      */
+    /**
+     * 查询我的收藏题目
+     *
+     * 请求示例：
+     * GET /favorite-questions?userId=1
+     */
     @GetMapping("/favorite-questions")
-    public Result<List<FavoriteQuestion>> listByUserId(@RequestParam Long userId) {
-        List<FavoriteQuestion> favoriteQuestions = favoriteQuestionService.listByUserId(userId);
+    public Result<List<FavoriteQuestionDetailResponse>> listByUserId(@RequestParam Long userId) {
+        List<FavoriteQuestionDetailResponse> favoriteQuestions = favoriteQuestionService.listByUserId(userId);
         return Result.success(favoriteQuestions);
     }
-
     /**
      * 取消收藏题目
      *

@@ -1,13 +1,20 @@
 package com.zntk.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zntk.dto.FavoriteQuestionDetailResponse;
 import com.zntk.dto.FavoriteQuestionRequest;
+import com.zntk.dto.QuestionOptionRequest;
 import com.zntk.entity.FavoriteQuestion;
+import com.zntk.entity.Question;
+import com.zntk.entity.QuestionOption;
 import com.zntk.mapper.FavoriteQuestionMapper;
+import com.zntk.mapper.QuestionMapper;
+import com.zntk.mapper.QuestionOptionMapper;
 import com.zntk.service.FavoriteQuestionService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,16 +31,33 @@ public class FavoriteQuestionServiceImpl implements FavoriteQuestionService {
      * 用来操作 favorite_question 表。
      */
     private final FavoriteQuestionMapper favoriteQuestionMapper;
+    /**
+     * 题目 Mapper
+     *
+     * 用来根据 questionId 查询题目详情。
+     */
+    private final QuestionMapper questionMapper;
 
+    /**
+     * 题目选项 Mapper
+     *
+     * 用来查询题目的选项列表。
+     */
+    private final QuestionOptionMapper questionOptionMapper;
     /**
      * 构造器注入。
      *
      * Spring 会自动把 FavoriteQuestionMapper 传进来。
      */
-    public FavoriteQuestionServiceImpl(FavoriteQuestionMapper favoriteQuestionMapper) {
+    public FavoriteQuestionServiceImpl(
+            FavoriteQuestionMapper favoriteQuestionMapper,
+            QuestionMapper questionMapper,
+            QuestionOptionMapper questionOptionMapper
+    ) {
         this.favoriteQuestionMapper = favoriteQuestionMapper;
+        this.questionMapper = questionMapper;
+        this.questionOptionMapper = questionOptionMapper;
     }
-
     @Override
     public Boolean favorite(FavoriteQuestionRequest request) {
         // 查询这个用户和这道题之间是否已经存在收藏记录。
@@ -78,15 +102,71 @@ public class FavoriteQuestionServiceImpl implements FavoriteQuestionService {
     }
 
     @Override
-    public List<FavoriteQuestion> listByUserId(Long userId) {
-        // 查询当前用户所有未取消收藏的题目。
+    public List<FavoriteQuestionDetailResponse> listByUserId(Long userId) {
+        // 1. 查询当前用户所有未取消收藏的记录。
         LambdaQueryWrapper<FavoriteQuestion> wrapper = new LambdaQueryWrapper<>();
-
         wrapper.eq(FavoriteQuestion::getUserId, userId);
         wrapper.eq(FavoriteQuestion::getDeleted, 0);
         wrapper.orderByDesc(FavoriteQuestion::getCreateTime);
 
-        return favoriteQuestionMapper.selectList(wrapper);
+        List<FavoriteQuestion> favoriteQuestions = favoriteQuestionMapper.selectList(wrapper);
+
+        // 2. 创建返回给前端的收藏详情列表。
+        List<FavoriteQuestionDetailResponse> resultList = new ArrayList<>();
+
+        // 3. 遍历每一条收藏记录。
+        for (FavoriteQuestion favoriteQuestion : favoriteQuestions) {
+            // 根据收藏记录里的 questionId 查询题目详情。
+            Question question = questionMapper.selectById(favoriteQuestion.getQuestionId());
+
+            // 如果题目不存在，就跳过这条收藏。
+            if (question == null) {
+                continue;
+            }
+
+            FavoriteQuestionDetailResponse response = new FavoriteQuestionDetailResponse();
+
+            // 4. 设置收藏记录相关字段。
+            response.setFavoriteQuestionId(favoriteQuestion.getId());
+            response.setQuestionId(favoriteQuestion.getQuestionId());
+            response.setCreateTime(favoriteQuestion.getCreateTime());
+
+            // 5. 设置题目详情字段。
+            response.setTitle(question.getTitle());
+            response.setQuestionType(question.getQuestionType());
+            response.setDifficulty(question.getDifficulty());
+            response.setKnowledgePoint(question.getKnowledgePoint());
+            response.setAnswer(question.getAnswer());
+            response.setAnalysis(question.getAnalysis());
+
+            // 6. 查询题目选项。
+            LambdaQueryWrapper<QuestionOption> optionWrapper = new LambdaQueryWrapper<>();
+            optionWrapper.eq(QuestionOption::getQuestionId, question.getId());
+            optionWrapper.orderByAsc(QuestionOption::getSortOrder);
+
+            List<QuestionOption> questionOptions = questionOptionMapper.selectList(optionWrapper);
+
+            // 7. 把 QuestionOption 实体转换成 QuestionOptionRequest。
+            // 这里先复用 QuestionOptionRequest。
+            // 后面如果追求更规范，可以再新建 QuestionOptionResponse。
+            List<QuestionOptionRequest> optionResponses = new ArrayList<>();
+
+            for (QuestionOption questionOption : questionOptions) {
+                QuestionOptionRequest optionResponse = new QuestionOptionRequest();
+
+                optionResponse.setOptionLabel(questionOption.getOptionLabel());
+                optionResponse.setOptionContent(questionOption.getOptionContent());
+                optionResponse.setSortOrder(questionOption.getSortOrder());
+
+                optionResponses.add(optionResponse);
+            }
+
+            response.setOptions(optionResponses);
+
+            resultList.add(response);
+        }
+
+        return resultList;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.zntk.service;
 
+import com.zntk.dto.FavoriteQuestionDetailResponse;
 import com.zntk.dto.FavoriteQuestionRequest;
 import com.zntk.entity.FavoriteQuestion;
 
@@ -26,7 +27,13 @@ public interface FavoriteQuestionService {
      * @param userId 用户 ID
      * @return 收藏记录列表
      */
-    List<FavoriteQuestion> listByUserId(Long userId);
+    /**
+     * 查询某个用户收藏的题目详情列表
+     *
+     * @param userId 用户 ID
+     * @return 收藏题目详情列表
+     */
+    List<FavoriteQuestionDetailResponse> listByUserId(Long userId);
 
     /**
      * 取消收藏题目
