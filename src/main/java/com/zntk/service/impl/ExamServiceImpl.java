@@ -1,6 +1,7 @@
 package com.zntk.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zntk.dto.ExamRankingResponse;
 import com.zntk.dto.ExamResultResponse;
 import com.zntk.dto.StartExamRequest;
 import com.zntk.dto.SubmitAnswerRequest;
@@ -17,11 +18,14 @@ import com.zntk.mapper.PaperQuestionMapper;
 import com.zntk.mapper.QuestionMapper;
 import com.zntk.service.ExamService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,6 +42,15 @@ public class ExamServiceImpl implements ExamService {
     private final PaperQuestionMapper paperQuestionMapper;
     private final QuestionMapper questionMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    /**
+     * 考试排行榜 Redis key 前缀
+     *
+     * 最终完整 key 长这样：
+     * zntk:exam:ranking:3001
+     *
+     * 其中 3001 是 paperId，表示某张试卷的排行榜。
+     */
+    private static final String EXAM_RANKING_KEY_PREFIX = "zntk:exam:ranking:";
 
     public ExamServiceImpl(
             ExamRecordMapper examRecordMapper,
@@ -167,6 +180,18 @@ public class ExamServiceImpl implements ExamService {
 
             examRecordMapper.updateById(examRecord);
 
+            // 把本次考试成绩写入 Redis 排行榜。
+// key 按试卷区分：zntk:exam:ranking:{paperId}
+// member 保存 userId，表示是哪位用户。
+// score 保存 userScore，表示这个用户本次考试分数。
+            String rankingKey = EXAM_RANKING_KEY_PREFIX + examRecord.getPaperId();
+
+            stringRedisTemplate.opsForZSet().add(
+                    rankingKey,
+                    String.valueOf(examRecord.getUserId()),
+                    (double) userScore
+            );
+
             return true;
         } finally {
             // 不管提交成功还是失败，都释放锁
@@ -211,5 +236,63 @@ public class ExamServiceImpl implements ExamService {
         response.setAnswerRecords(answerRecords);
 
         return response;
+    }
+
+    @Override
+    public List<ExamRankingResponse> getRanking(Long paperId, Integer limit) {
+        // 如果前端没有传 limit，就默认查询前 10 名。
+        if (limit == null || limit <= 0) {
+            limit = 10;
+        }
+
+        // Redis 排行榜 key。
+        // 例如 paperId = 3001，则 key = zntk:exam:ranking:3001
+        String rankingKey = EXAM_RANKING_KEY_PREFIX + paperId;
+
+        // reverseRangeWithScores 表示：
+        // 从 ZSet 中按 score 从高到低查询。
+        //
+        // 0 表示从第 1 名开始。
+        // limit - 1 表示查到第 limit 名。
+        //
+        // 返回值 Set<TypedTuple<String>> 里：
+        // value 是 member，也就是 userId 字符串。
+        // score 是分数。
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                stringRedisTemplate.opsForZSet()
+                        .reverseRangeWithScores(rankingKey, 0, limit - 1);
+
+        // 创建一个列表，用来装返回给前端的排行榜数据。
+        List<ExamRankingResponse> rankingList = new ArrayList<>();
+
+        // 如果 Redis 里还没有排行榜数据，直接返回空列表。
+        if (tuples == null || tuples.isEmpty()) {
+            return rankingList;
+        }
+
+        // rank 表示当前排名，从 1 开始。
+        int rank = 1;
+
+        // 遍历 Redis 查出来的排行榜数据。
+        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+            ExamRankingResponse response = new ExamRankingResponse();
+
+            // tuple.getValue() 是 Redis ZSet 的 member。
+            // 我们前面存进去的是 userId 字符串，所以这里转成 Long。
+            response.setUserId(Long.valueOf(tuple.getValue()));
+
+            // tuple.getScore() 是 Redis ZSet 的 score，也就是考试分数。
+            response.setScore(tuple.getScore());
+
+            // 设置排名。
+            response.setRank(rank);
+
+            rankingList.add(response);
+
+            // 下一个人排名 +1。
+            rank++;
+        }
+
+        return rankingList;
     }
 }
