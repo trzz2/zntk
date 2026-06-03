@@ -1,10 +1,12 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.dto.ExamHistoryResponse;
 import com.zntk.dto.ExamRankingResponse;
 import com.zntk.dto.ExamResultResponse;
 import com.zntk.dto.StartExamRequest;
 import com.zntk.dto.SubmitExamRequest;
+import com.zntk.entity.ExamRecord;
 import com.zntk.service.ExamService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -75,6 +77,28 @@ public class ExamController {
 
         // 使用统一返回 Result，把排行榜列表返回给前端。
         return Result.success(rankingList);
+    }
+
+    /**
+     * 查询用户考试历史列表
+     *
+     * 请求示例：
+     * GET /exams/history?userId=1
+     */
+    /**
+     * 查询用户考试历史列表
+     *
+     * 请求示例：
+     * GET /exams/history?userId=1
+     */
+    @GetMapping("/history")
+    public Result<List<ExamHistoryResponse>> listHistory(@RequestParam Long userId) {
+        // 调用 Service 查询用户考试历史。
+        // 返回的是专门给前端展示的 DTO，里面包含试卷标题。
+        List<ExamHistoryResponse> historyList = examService.listHistory(userId);
+
+        // 使用统一返回 Result 包装。
+        return Result.success(historyList);
     }
 
 

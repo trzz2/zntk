@@ -1,6 +1,8 @@
 package com.zntk.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zntk.common.Result;
+import com.zntk.dto.ExamHistoryResponse;
 import com.zntk.dto.ExamRankingResponse;
 import com.zntk.dto.ExamResultResponse;
 import com.zntk.dto.StartExamRequest;
@@ -23,6 +25,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -348,5 +352,49 @@ public class ExamServiceImpl implements ExamService {
         }
 
         return rankingList;
+    }
+
+    /**
+     * 查询用户考试历史列表
+     *
+     * 请求示例：
+     * GET /exams/history?userId=1
+     */
+    @Override
+    public List<ExamHistoryResponse> listHistory(Long userId) {
+        // 1. 查询当前用户的考试记录。
+        LambdaQueryWrapper<ExamRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ExamRecord::getUserId, userId);
+        wrapper.orderByDesc(ExamRecord::getStartTime);
+
+        List<ExamRecord> examRecords = examRecordMapper.selectList(wrapper);
+
+        // 2. 创建返回给前端的历史列表。
+        List<ExamHistoryResponse> historyList = new ArrayList<>();
+
+        // 3. 遍历每一条考试记录，补充试卷标题。
+        for (ExamRecord examRecord : examRecords) {
+            ExamHistoryResponse response = new ExamHistoryResponse();
+
+            response.setExamRecordId(examRecord.getId());
+            response.setPaperId(examRecord.getPaperId());
+            response.setTotalScore(examRecord.getTotalScore());
+            response.setUserScore(examRecord.getUserScore());
+            response.setStatus(examRecord.getStatus());
+            response.setStartTime(examRecord.getStartTime());
+            response.setSubmitTime(examRecord.getSubmitTime());
+
+            // 根据考试记录里的 paperId 查询 paper 表。
+            // 这样可以拿到试卷标题。
+            Paper paper = paperMapper.selectById(examRecord.getPaperId());
+
+            if (paper != null) {
+                response.setPaperTitle(paper.getTitle());
+            }
+
+            historyList.add(response);
+        }
+
+        return historyList;
     }
 }

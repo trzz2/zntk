@@ -1,9 +1,11 @@
 package com.zntk.service;
 
+import com.zntk.dto.ExamHistoryResponse;
 import com.zntk.dto.ExamRankingResponse;
 import com.zntk.dto.ExamResultResponse;
 import com.zntk.dto.StartExamRequest;
 import com.zntk.dto.SubmitExamRequest;
+import com.zntk.entity.ExamRecord;
 
 import java.util.List;
 
@@ -34,4 +36,12 @@ public interface ExamService {
      * @return 排行榜列表
      */
     List<ExamRankingResponse> getRanking(Long paperId, Integer limit);
+
+    /**
+     * 查询用户考试历史列表
+     *
+     * @param userId 用户 ID
+     * @return 用户考试记录列表
+     */
+    List<ExamHistoryResponse> listHistory(Long userId);
 }
