@@ -175,42 +175,53 @@ public class ExamServiceImpl implements ExamService {
                 answerRecordMapper.insert(answerRecord);
                 // 如果这道题答错了，就保存到错题本。
 // correct 是前面判题得到的布尔值：true 表示答对，false 表示答错。
+                // 如果这道题答错了，就保存到错题本。
+// 这里做了一个优化：
+// 同一个用户同一道题如果已经存在错题记录，就不重复插入，改为更新 wrongCount。
                 if (!correct) {
-                    WrongQuestion wrongQuestion = new WrongQuestion();
+                    // 先根据 userId + questionId 查询这道题之前是否已经进过错题本。
+                    LambdaQueryWrapper<WrongQuestion> wrongWrapper = new LambdaQueryWrapper<>();
+                    wrongWrapper.eq(WrongQuestion::getUserId, examRecord.getUserId());
+                    wrongWrapper.eq(WrongQuestion::getQuestionId, answerRequest.getQuestionId());
 
-                    // 当前考试是谁提交的，就记录哪个用户。
-                    wrongQuestion.setUserId(examRecord.getUserId());
+                    WrongQuestion oldWrongQuestion = wrongQuestionMapper.selectOne(wrongWrapper);
 
-                    // 当前答错的是哪道题。
-                    wrongQuestion.setQuestionId(answerRequest.getQuestionId());
+                    // 当前时间，下面新增或更新都要用。
+                    LocalDateTime now = LocalDateTime.now();
 
-                    // 当前错题来自哪张试卷。
-                    wrongQuestion.setPaperId(examRecord.getPaperId());
+                    if (oldWrongQuestion == null) {
+                        // 情况 1：以前没错过这道题。
+                        // 新增一条错题记录。
+                        WrongQuestion wrongQuestion = new WrongQuestion();
 
-                    // 当前错题来自哪一次考试。
-                    wrongQuestion.setExamRecordId(examRecord.getId());
+                        wrongQuestion.setUserId(examRecord.getUserId());
+                        wrongQuestion.setQuestionId(answerRequest.getQuestionId());
+                        wrongQuestion.setPaperId(examRecord.getPaperId());
+                        wrongQuestion.setExamRecordId(examRecord.getId());
+                        wrongQuestion.setWrongAnswer(answerRequest.getUserAnswer());
+                        wrongQuestion.setCorrectAnswer(question.getAnswer());
+                        wrongQuestion.setWrongCount(1);
+                        wrongQuestion.setLastWrongTime(now);
+                        wrongQuestion.setCreateTime(now);
+                        wrongQuestion.setUpdateTime(now);
+                        wrongQuestion.setDeleted(0);
 
-                    // 用户提交的错误答案。
-                    wrongQuestion.setWrongAnswer(answerRequest.getUserAnswer());
+                        wrongQuestionMapper.insert(wrongQuestion);
+                    } else {
+                        // 情况 2：以前已经错过这道题。
+                        // 不再新增记录，而是更新原来的错题记录。
+                        oldWrongQuestion.setWrongCount(oldWrongQuestion.getWrongCount() + 1);
+                        oldWrongQuestion.setWrongAnswer(answerRequest.getUserAnswer());
+                        oldWrongQuestion.setCorrectAnswer(question.getAnswer());
+                        oldWrongQuestion.setPaperId(examRecord.getPaperId());
+                        oldWrongQuestion.setExamRecordId(examRecord.getId());
+                        oldWrongQuestion.setLastWrongTime(now);
+                        oldWrongQuestion.setUpdateTime(now);
 
-                    // 题目表里的正确答案。
-                    wrongQuestion.setCorrectAnswer(question.getAnswer());
-
-                    // 第一次记录，错误次数先写 1。
-                    wrongQuestion.setWrongCount(1);
-
-                    // 最近一次答错时间设置为当前时间。
-                    wrongQuestion.setLastWrongTime(LocalDateTime.now());
-
-                    // 创建时间和更新时间。
-                    wrongQuestion.setCreateTime(LocalDateTime.now());
-                    wrongQuestion.setUpdateTime(LocalDateTime.now());
-
-                    // 逻辑删除字段：0 表示未删除。
-                    wrongQuestion.setDeleted(0);
-
-                    wrongQuestionMapper.insert(wrongQuestion);
+                        wrongQuestionMapper.updateById(oldWrongQuestion);
+                    }
                 }
+
 
                 // 3.5 累加用户得分
                 userScore += score;
