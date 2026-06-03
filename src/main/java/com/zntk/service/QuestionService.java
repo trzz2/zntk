@@ -1,6 +1,7 @@
 package com.zntk.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zntk.dto.QuestionBatchCreateRequest;
 import com.zntk.dto.QuestionCreateRequest;
 import com.zntk.dto.QuestionDetailResponse;
 import com.zntk.entity.Question;
@@ -59,4 +60,12 @@ public interface QuestionService {
      * 根据 ID 删除题目。
      */
     Boolean deleteQuestion(Long id);
+
+    /**
+     * 批量新增题目
+     *
+     * @param request 批量新增请求，里面包含多道题
+     * @return 新增成功的题目 ID 列表
+     */
+    List<Long> batchCreate(QuestionBatchCreateRequest request);
 }

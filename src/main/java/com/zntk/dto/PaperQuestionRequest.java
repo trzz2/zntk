@@ -1,34 +1,22 @@
 package com.zntk.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- * 创建试卷时传入的题目配置。
- *
- * 表示：某张试卷中包含哪道题、
- * 这道题多少分、排在第几个。
- */
 @Data
+@Schema(description = "试卷题目配置请求")
 public class PaperQuestionRequest {
 
-    /**
-     * 题目 ID。
-     *
-     * 用来关联 question 表。
-     */
-    @NotNull(message = "题目ID不能为空")
+    @Schema(description = "题目 ID")
+    @NotNull(message = "Question ID cannot be empty")
     private Long questionId;
 
-    /**
-     * 本题分值。
-     */
-    @NotNull(message = "题目分值不能为空")
+    @Schema(description = "题目分值", example = "5")
+    @NotNull(message = "Question score cannot be empty")
     private Integer score;
 
-    /**
-     * 题目顺序。
-     */
-    @NotNull(message = "题目顺序不能为空")
+    @Schema(description = "题目在试卷中的排序", example = "1")
+    @NotNull(message = "Sort order cannot be empty")
     private Integer sortOrder;
 }

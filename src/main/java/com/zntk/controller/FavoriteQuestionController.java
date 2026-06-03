@@ -1,87 +1,49 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.common.UserContext;
 import com.zntk.dto.FavoriteQuestionDetailResponse;
 import com.zntk.dto.FavoriteQuestionRequest;
-import com.zntk.entity.FavoriteQuestion;
 import com.zntk.service.FavoriteQuestionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 收藏题目接口
- *
- * 负责接收前端的收藏、查询收藏、取消收藏请求。
- */
+@Tag(name = "收藏题目", description = "收藏题目、取消收藏和查询我的收藏")
 @RestController
 public class FavoriteQuestionController {
 
-    /**
-     * 收藏题目业务对象
-     *
-     * Controller 不直接操作数据库，
-     * 而是调用 Service。
-     */
     private final FavoriteQuestionService favoriteQuestionService;
 
-    /**
-     * 构造器注入。
-     *
-     * Spring 会自动把 FavoriteQuestionService 的实现类传进来。
-     */
     public FavoriteQuestionController(FavoriteQuestionService favoriteQuestionService) {
         this.favoriteQuestionService = favoriteQuestionService;
     }
 
-    /**
-     * 收藏题目
-     *
-     * 请求示例：
-     * POST /favorite-questions
-     *
-     * Body:
-     * {
-     *   "userId": 1,
-     *   "questionId": 1001
-     * }
-     */
+    @Operation(summary = "收藏题目", description = "当前登录用户收藏指定题目")
     @PostMapping("/favorite-questions")
     public Result<Boolean> favorite(@RequestBody @Valid FavoriteQuestionRequest request) {
-        Boolean result = favoriteQuestionService.favorite(request);
-        return Result.success(result);
+        request.setUserId(UserContext.getUserId());
+        return Result.success(favoriteQuestionService.favorite(request));
     }
 
-    /**
-     * 查询我的收藏题目
-     *
-     * 请求示例：
-     * GET /favorite-questions?userId=1
-     */
-    /**
-     * 查询我的收藏题目
-     *
-     * 请求示例：
-     * GET /favorite-questions?userId=1
-     */
+    @Operation(summary = "查询我的收藏", description = "查询当前登录用户收藏过的题目详情")
     @GetMapping("/favorite-questions")
-    public Result<List<FavoriteQuestionDetailResponse>> listByUserId(@RequestParam Long userId) {
-        List<FavoriteQuestionDetailResponse> favoriteQuestions = favoriteQuestionService.listByUserId(userId);
-        return Result.success(favoriteQuestions);
+    public Result<List<FavoriteQuestionDetailResponse>> listByCurrentUser() {
+        return Result.success(favoriteQuestionService.listByUserId(UserContext.getUserId()));
     }
-    /**
-     * 取消收藏题目
-     *
-     * 请求示例：
-     * DELETE /favorite-questions?userId=1&questionId=1001
-     */
+
+    @Operation(summary = "取消收藏", description = "当前登录用户取消收藏指定题目")
     @DeleteMapping("/favorite-questions")
-    public Result<Boolean> cancel(
-            @RequestParam Long userId,
-            @RequestParam Long questionId
-    ) {
-        Boolean result = favoriteQuestionService.cancel(userId, questionId);
-        return Result.success(result);
+    public Result<Boolean> cancel(@Parameter(description = "题目 ID") @RequestParam Long questionId) {
+        return Result.success(favoriteQuestionService.cancel(UserContext.getUserId(), questionId));
     }
 }

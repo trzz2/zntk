@@ -1,29 +1,17 @@
 package com.zntk.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- * 收藏题目请求对象
- *
- * 用来接收前端传来的 JSON 参数。
- */
 @Data
+@Schema(description = "收藏题目请求")
 public class FavoriteQuestionRequest {
 
-    /**
-     * 用户 ID
-     *
-     * 表示是谁要收藏题目。
-     */
-    @NotNull(message = "用户ID不能为空")
+    @Schema(description = "用户 ID，后端会从 Token 中自动设置，前端不用传")
     private Long userId;
 
-    /**
-     * 题目 ID
-     *
-     * 表示要收藏哪道题。
-     */
-    @NotNull(message = "题目ID不能为空")
+    @Schema(description = "题目 ID")
+    @NotNull(message = "Question ID cannot be empty")
     private Long questionId;
 }

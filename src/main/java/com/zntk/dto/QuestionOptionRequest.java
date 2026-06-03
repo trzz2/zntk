@@ -1,33 +1,23 @@
 package com.zntk.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-/**
- * 新增题目时传入的选项数据。
- *
- * 它用于接收前端传来的 options 数组中的每一项。
- */
 @Data
+@Schema(description = "题目选项请求")
 public class QuestionOptionRequest {
 
-    /**
-     * 选项标识不能为空。
-     * 例如 A、B、C、D。
-     */
-    @NotBlank(message = "选项标识不能为空")
+    @Schema(description = "选项标识", example = "A")
+    @NotBlank(message = "Option label cannot be empty")
     private String optionLabel;
 
-    /**
-     * 选项内容不能为空。
-     */
-    @NotBlank(message = "选项内容不能为空")
+    @Schema(description = "选项内容", example = "读写速度快")
+    @NotBlank(message = "Option content cannot be empty")
     private String optionContent;
 
-    /**
-     * 排序不能为空。
-     */
-    @NotNull(message = "选项排序不能为空")
+    @Schema(description = "排序值", example = "1")
+    @NotNull(message = "Sort order cannot be empty")
     private Integer sortOrder;
 }

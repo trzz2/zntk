@@ -1,21 +1,28 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.common.UserContext;
 import com.zntk.dto.ExamHistoryResponse;
 import com.zntk.dto.ExamRankingResponse;
 import com.zntk.dto.ExamResultResponse;
 import com.zntk.dto.StartExamRequest;
 import com.zntk.dto.SubmitExamRequest;
-import com.zntk.entity.ExamRecord;
 import com.zntk.service.ExamService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * 考试接口控制器。
- */
+@Tag(name = "考试管理", description = "开始考试、提交试卷、查询成绩、历史记录和排行榜")
 @RestController
 @RequestMapping("/exams")
 public class ExamController {
@@ -26,81 +33,37 @@ public class ExamController {
         this.examService = examService;
     }
 
-    /**
-     * 开始考试。
-     */
+    @Operation(summary = "开始考试", description = "为当前登录用户创建考试记录，返回 examRecordId")
     @PostMapping("/start")
     public Result<Long> start(@Valid @RequestBody StartExamRequest request) {
-        Long id = examService.startExam(request);
-        return Result.success(id);
+        request.setUserId(UserContext.getUserId());
+        return Result.success(examService.startExam(request));
     }
 
-    /**
-     * 提交考试。
-     */
+    @Operation(summary = "提交试卷", description = "提交用户答案，后端自动判分、防重复提交、防越权和防超时")
     @PostMapping("/submit")
     public Result<Boolean> submit(@Valid @RequestBody SubmitExamRequest request) {
-        Boolean submitted = examService.submitExam(request);
-        return Result.success(submitted);
+        return Result.success(examService.submitExam(request));
     }
 
-    /**
-     * 查询考试结果。
-     */
+    @Operation(summary = "查询考试结果", description = "根据考试记录 ID 查询成绩和每道题的作答记录")
     @GetMapping("/{id}")
-    public Result<ExamResultResponse> getResult(@PathVariable Long id) {
-        ExamResultResponse result = examService.getExamResult(id);
-        return Result.success(result);
+    public Result<ExamResultResponse> getResult(@Parameter(description = "考试记录 ID") @PathVariable Long id) {
+        return Result.success(examService.getExamResult(id));
     }
 
-
-
-
-
-    /**
-     * 查询某张试卷的成绩排行榜
-     *
-     * 请求示例：
-     * GET /exams/ranking?paperId=3001&limit=10
-     *
-     * paperId 表示查哪张试卷的排行榜。
-     * limit 表示查前多少名。
-     */
+    @Operation(summary = "查询试卷排行榜", description = "基于 Redis ZSet 按分数从高到低返回排行榜")
     @GetMapping("/ranking")
     public Result<List<ExamRankingResponse>> getRanking(
-            @RequestParam Long paperId,
-            @RequestParam(required = false) Integer limit
+            @Parameter(description = "试卷 ID") @RequestParam Long paperId,
+            @Parameter(description = "返回前 N 名，不传默认 10") @RequestParam(required = false) Integer limit
     ) {
-        // Controller 只负责接收请求参数，然后调用 Service。
-        // 真正查询 Redis 排行榜的逻辑在 examService.getRanking 里面。
-        List<ExamRankingResponse> rankingList = examService.getRanking(paperId, limit);
-
-        // 使用统一返回 Result，把排行榜列表返回给前端。
-        return Result.success(rankingList);
+        return Result.success(examService.getRanking(paperId, limit));
     }
 
-    /**
-     * 查询用户考试历史列表
-     *
-     * 请求示例：
-     * GET /exams/history?userId=1
-     */
-    /**
-     * 查询用户考试历史列表
-     *
-     * 请求示例：
-     * GET /exams/history?userId=1
-     */
+    @Operation(summary = "查询我的考试历史", description = "查询当前登录用户的考试记录列表")
     @GetMapping("/history")
-    public Result<List<ExamHistoryResponse>> listHistory(@RequestParam Long userId) {
-        // 调用 Service 查询用户考试历史。
-        // 返回的是专门给前端展示的 DTO，里面包含试卷标题。
-        List<ExamHistoryResponse> historyList = examService.listHistory(userId);
-
-        // 使用统一返回 Result 包装。
-        return Result.success(historyList);
+    public Result<List<ExamHistoryResponse>> listHistory() {
+        return Result.success(examService.listHistory(UserContext.getUserId()));
     }
-
-
-
 }

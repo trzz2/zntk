@@ -1,28 +1,23 @@
 package com.zntk.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
 
-/**
- * 提交考试请求。
- *
- * 前端提交某次考试的所有答案。
- */
 @Data
+@Schema(description = "提交试卷请求")
 public class SubmitExamRequest {
 
-    /**
-     * 考试记录 ID。
-     */
-    @NotNull(message = "考试记录ID不能为空")
+    @Schema(description = "考试记录 ID")
+    @NotNull(message = "Exam record ID cannot be empty")
     private Long examRecordId;
 
-    /**
-     * 用户答案列表。
-     */
+    @Schema(description = "用户答案列表")
+    @NotEmpty(message = "Answer list cannot be empty")
     @Valid
     private List<SubmitAnswerRequest> answers;
 }
