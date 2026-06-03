@@ -1,6 +1,7 @@
 package com.zntk.controller;
 
 import com.zntk.common.Result;
+import com.zntk.dto.WrongQuestionDetailResponse;
 import com.zntk.entity.WrongQuestion;
 import com.zntk.service.WrongQuestionService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,11 +42,8 @@ public class WrongQuestionController {
      * GET /wrong-questions?userId=1
      */
     @GetMapping("/wrong-questions")
-    public Result<List<WrongQuestion>> listByUserId(@RequestParam Long userId) {
-        // 调用 Service 查询用户错题。
-        List<WrongQuestion> wrongQuestions = wrongQuestionService.listByUserId(userId);
-
-        // 使用统一返回 Result 包装结果。
+    public Result<List<WrongQuestionDetailResponse>> listByUserId(@RequestParam Long userId) {
+        List<WrongQuestionDetailResponse> wrongQuestions = wrongQuestionService.listByUserId(userId);
         return Result.success(wrongQuestions);
     }
 }

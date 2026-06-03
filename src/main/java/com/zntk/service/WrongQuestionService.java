@@ -1,5 +1,6 @@
 package com.zntk.service;
 
+import com.zntk.dto.WrongQuestionDetailResponse;
 import com.zntk.entity.WrongQuestion;
 
 import java.util.List;
@@ -18,5 +19,11 @@ public interface WrongQuestionService {
      * @param userId 用户 ID
      * @return 错题列表
      */
-    List<WrongQuestion> listByUserId(Long userId);
+    /**
+     * 查询某个用户的错题详情列表
+     *
+     * @param userId 用户 ID
+     * @return 错题详情列表
+     */
+    List<WrongQuestionDetailResponse> listByUserId(Long userId);
 }
